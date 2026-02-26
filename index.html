@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>xWS Guts Recommendation System | Google Style</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Google Sans', 'Roboto', Arial, sans-serif;
+            background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            background: white; border-radius: 16px 16px 0 0; padding: 32px 40px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-bottom: 1px solid #e8eaed;
+        }
+        .logo-container { display:flex; align-items:center; margin-bottom:16px; }
+        .xws-logo { display:flex; align-items:center; font-size:32px; font-weight:700; margin-right:12px; }
+        .xws-x { color: #4285F4; }
+        .xws-w { color: #EA4335; }
+        .xws-s { color: #FBBC05; }
+        .logo-text { font-size:22px; font-weight:500; color:#3c4043; }
+        .tagline { color:#5f6368; font-size:16px; margin-bottom:24px; }
+
+        .main-content {
+            background: white; border-radius: 0 0 16px 16px; padding: 40px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom:20px;
+        }
+
+        .input-section { margin-bottom: 40px; }
+        .section-title { display:flex; align-items:center; margin-bottom:20px; }
+        .section-title .material-icons { color:#4285F4; margin-right:12px; font-size:24px; }
+        .section-title h2 { color:#3c4043; font-size:20px; font-weight:500; }
+
+        .description-input {
+            width:100%; min-height:120px; padding:16px; border:2px solid #e8eaed;
+            border-radius:8px; font-family:'Google Sans', sans-serif; font-size:16px; resize:vertical;
+            transition:border-color 0.3s ease;
+        }
+        .description-input:focus { outline:none; border-color:#4285F4; box-shadow:0 0 0 2px rgba(66,133,244,0.2); }
+        .description-input::placeholder { color:#9aa0a6; }
+
+        .char-count { text-align:right; color:#5f6368; font-size:14px; margin-top:8px; }
+
+        .button-container { display:flex; gap:12px; margin-top:24px; }
+        .google-button {
+            display:flex; align-items:center; justify-content:center; padding:12px 24px;
+            border:none; border-radius:8px; font-family:'Google Sans', sans-serif;
+            font-size:14px; font-weight:500; cursor:pointer; transition:all 0.3s ease; min-width:120px;
+        }
+        .button-primary { background:#4285F4; color:white; }
+        .button-primary:hover { background:#3367d6; box-shadow:0 2px 4px rgba(66,133,244,0.3); }
+        .button-secondary { background:#f8f9fa; color:#3c4043; border:1px solid #dadce0; }
+        .button-secondary:hover { background:#f1f3f4; }
+        .button-icon { margin-right:8px; font-size:18px; }
+
+        .loading-container { display:none; text-align:center; padding:40px; }
+        .loading-spinner {
+            width:40px; height:40px; border:4px solid #f1f3f4; border-top:4px solid #4285F4;
+            border-radius:50%; animation:spin 1s linear infinite; margin:0 auto 16px;
+        }
+        @keyframes spin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }
+        .loading-text { color:#5f6368; font-size:16px; }
+
+        .results-section { display:none; margin-top:40px; }
+        .results-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .results-count { color:#3c4043; font-size:18px; font-weight:500; }
+        .similarity-filter { display:flex; align-items:center; gap:12px; }
+        .filter-label { color:#5f6368; font-size:14px; }
+        .filter-slider { width:200px; }
+
+        .results-grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+        .result-card {
+            background:#f8f9fa; border:1px solid #e8eaed; border-radius:12px; padding:20px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .result-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+
+        .result-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+        .ticket-id { color:#4285F4; font-size:16px; font-weight:500; }
+        .similarity-badge { background:#34A853; color:white; padding:4px 12px; border-radius:16px; font-size:12px; font-weight:500; }
+
+        .result-description { color:#3c4043; line-height:1.5; margin-bottom:12px; }
+        .result-meta { display:flex; gap:16px; color:#5f6368; font-size:12px; }
+
+        .empty-state { text-align:center; padding:60px 20px; color:#5f6368; }
+        .empty-icon { font-size:64px; color:#dadce0; margin-bottom:16px; }
+
+        .footer { text-align:center; color:white; margin-top:40px; opacity:0.8; }
+        .footer-links { display:flex; justify-content:center; gap:24px; margin-top:12px; }
+        .footer-link { color:white; text-decoration:none; font-size:14px; }
+        .footer-link:hover { text-decoration:underline; }
+
+        @media (max-width: 768px) {
+            .header { padding:24px; }
+            .main-content { padding:24px; }
+            .button-container { flex-direction:column; }
+            .google-button { width:100%; }
+            .results-header { flex-direction:column; gap:16px; align-items:flex-start; }
+            .filter-slider { width:100%; }
+        }
+        @media (max-width: 480px) {
+            .xws-logo { font-size:24px; }
+            .logo-text { font-size:16px; }
+            .tagline { font-size:14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-container">
+                <div class="xws-logo">
+                    <span class="xws-x">x</span>
+                    <span class="xws-w">W</span>
+                    <span class="xws-s">S</span>
+                </div>
+                <div class="logo-text">Guts Recommendation System</div>
+            </div>
+            <div class="tagline">Powered by Google AI • Find similar tickets instantly with advanced machine learning</div>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <div class="section-title">
+                    <span class="material-icons">description</span>
+                    <h2>Enter Ticket Description</h2>
+                </div>
+
+                <textarea class="description-input" placeholder="Describe the issue you're experiencing. For example: 'Network connectivity issues with WiFi in building A'" maxlength="1000"></textarea>
+                <div class="char-count"><span id="char-count">0</span>/1000 characters</div>
+
+                <div class="button-container">
+                    <button class="google-button button-primary" onclick="analyzeTicket()">
+                        <span class="material-icons button-icon">search</span>
+                        Find Similar Tickets
+                    </button>
+                    <button class="google-button button-secondary" onclick="clearInput()">
+                        <span class="material-icons button-icon">clear</span>
+                        Clear
+                    </button>
+                </div>
+            </div>
+
+            <div class="loading-container" id="loadingContainer">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Analyzing your description and finding similar tickets...</div>
+            </div>
+
+            <div class="results-section" id="resultsSection">
+                <div class="results-header">
+                    <div class="results-count" id="resultsCount">0 similar tickets found</div>
+                    <div class="similarity-filter">
+                        <span class="filter-label">Minimum similarity:</span>
+                        <input type="range" class="filter-slider" id="similaritySlider" min="50" max="100" value="70">
+                        <span id="sliderValue">70%</span>
+                    </div>
+                </div>
+
+                <div class="results-grid" id="resultsGrid"></div>
+            </div>
+
+            <div class="empty-state" id="emptyState">
+                <div class="material-icons empty-icon">search</div>
+                <h3>No description entered</h3>
+                <p>Enter a ticket description above to find similar historical tickets</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div>xWS Guts Recommendation System</div>
+            <div class="footer-links">
+                <a href="#" class="footer-link">Privacy Policy</a>
+                <a href="#" class="footer-link">Terms of Service</a>
+                <a href="#" class="footer-link">Help Center</a>
+                <a href="#" class="footer-link">Report an Issue</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const descriptionInput = document.querySelector('.description-input');
+        const charCount = document.getElementById('char-count');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsGrid = document.getElementById('resultsGrid');
+        const resultsCount = document.getElementById('resultsCount');
+        const emptyState = document.getElementById('emptyState');
+        const similaritySlider = document.getElementById('similaritySlider');
+        const sliderValue = document.getElementById('sliderValue');
+
+        const googleColors = {
+            blue: '#4285F4',
+            red: '#EA4335',
+            yellow: '#FBBC05',
+            green: '#34A853',
+            gray: '#5F6368'
+        };
+
+        let globalResults = [];
+
+        // Character counter
+        descriptionInput.addEventListener('input', function() {
+            const length = this.value.length;
+            charCount.textContent = length;
+            if (length > 800) {
+                charCount.style.color = googleColors.red;
+            } else if (length > 500) {
+                charCount.style.color = googleColors.yellow;
+            } else {
+                charCount.style.color = googleColors.gray;
+            }
+        });
+
+        similaritySlider.addEventListener('input', function() {
+            sliderValue.textContent = this.value + '%';
+            filterAndDisplayResults();
+        });
+
+        async function analyzeTicket() {
+            const description = descriptionInput.value.trim();
+
+            if (!description) {
+                showNotification('Please enter a ticket description', 'error');
+                return;
+            }
+            if (description.length < 10) {
+                showNotification('Please provide a more detailed description', 'warning');
+                return;
+            }
+
+            showLoading(true);
+            hideEmptyState();
+            hideResults();
+
+            try {
+                const response = await fetch('/api/find_similar_tickets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: description })
+                });
+
+                let data = null;
+                try { data = await response.json(); } catch (e) { data = null; }
+
+                if (!response.ok) {
+                    const errMsg = (data && data.error) ? data.error : `Server returned ${response.status}`;
+                    showNotification(`Error: ${errMsg}`, 'error');
+                    globalResults = [];
+                } else {
+                    globalResults = Array.isArray(data) ? data : [];
+                }
+            } catch (err) {
+                showNotification('Could not connect to the backend server.', 'error');
+                console.error('Fetch error:', err);
+                globalResults = [];
+            } finally {
+                showLoading(false);
+                filterAndDisplayResults();
+            }
+        }
+
+        function filterAndDisplayResults() {
+            resultsGrid.innerHTML = '';
+
+            const minSimilarity = parseInt(similaritySlider.value) / 100.0;
+            const filtered = globalResults.filter(t => t.similarity_score >= minSimilarity);
+
+            if (!filtered || filtered.length === 0) {
+                showEmptyState('No similar tickets found above threshold');
+                return;
+            }
+
+            resultsCount.textContent = `${filtered.length} similar tickets found`;
+
+            filtered.forEach(ticket => {
+                const card = createResultCard(ticket);
+                resultsGrid.appendChild(card);
+            });
+
+            showResults();
+        }
+
+        function createResultCard(ticket) {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+
+            const similarity_percent = Math.round(ticket.similarity_score * 100);
+
+            let badgeColor = googleColors.green;
+            if (similarity_percent < 70) badgeColor = googleColors.yellow;
+            if (similarity_percent < 60) badgeColor = googleColors.red;
+
+            card.innerHTML = `
+                <div class="result-header">
+                    <div class="ticket-id">${ticket.ticket_id}</div>
+                    <div class="similarity-badge" style="background:${badgeColor};">
+                        ${similarity_percent}% match
+                    </div>
+                </div>
+                <div class="result-description">${escapeHtml(ticket.original_description)}</div>
+                <div class="result-meta">
+                    <div class="meta-item"><span class="material-icons" style="font-size:14px;">event</span> N/A</div>
+                    <div class="meta-item"><span class="material-icons" style="font-size:14px;">circle</span> N/A</div>
+                </div>
+            `;
+            return card;
+        }
+
+        function clearInput() {
+            descriptionInput.value = '';
+            charCount.textContent = '0';
+            charCount.style.color = googleColors.gray;
+            hideResults();
+            showEmptyState();
+            globalResults = [];
+        }
+
+        function showLoading(show) { loadingContainer.style.display = show ? 'block' : 'none'; }
+        function showResults() { resultsSection.style.display = 'block'; emptyState.style.display = 'none'; }
+        function hideResults() { resultsSection.style.display = 'none'; }
+        function showEmptyState(message = 'No description entered') {
+            emptyState.innerHTML = `
+                <div class="material-icons empty-icon">search</div>
+                <h3>${message}</h3>
+                <p>${message === 'No description entered' ? 'Enter a ticket description above to find similar historical tickets' : 'Try adjusting your search criteria or description'}</p>
+            `;
+            emptyState.style.display = 'block';
+            resultsSection.style.display = 'none';
+        }
+        function hideEmptyState() { emptyState.style.display = 'none'; }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 16px 20px;
+                background: ${type === 'error' ? googleColors.red : type === 'warning' ? googleColors.yellow : googleColors.blue};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 1000;
+                font-weight: 500;
+                max-width: 300px;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // simple HTML-escape for descriptions to prevent accidental HTML injection
+        function escapeHtml(unsafe) {
+            if (!unsafe && unsafe !== 0) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            showEmptyState();
+            const xwsLogo = document.querySelector('.xws-logo');
+            xwsLogo.style.cursor = 'pointer';
+            xwsLogo.addEventListener('click', function() {
+                this.style.transform = 'scale(1.05)';
+                setTimeout(() => this.style.transform = 'scale(1)', 200);
+            });
+
+            // Update slider label initially
+            sliderValue.textContent = similaritySlider.value + '%';
+        });
+    </script>
+</body>
+</html>
