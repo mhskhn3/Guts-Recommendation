@@ -1,10 +1,10 @@
+# app.py - With your specific file IDs
 import os
 import gdown
 import joblib
 import sys
 import traceback
 from flask import Flask, render_template, request, jsonify
-from model import TicketRecommendationSystem
 import nltk
 
 # Download NLTK data
@@ -25,51 +25,102 @@ app = Flask(__name__)
 recommender = None
 
 def download_from_drive():
-    """Download model from Google Drive"""
+    """Download model and CSV from Google Drive"""
     print("="*50)
-    print("STEP 2: Checking for model file from Google Drive...")
+    print("STEP 2: Downloading files from Google Drive")
     print("="*50)
     
-    # Your Google Drive file ID
+    # Your specific file IDs (hardcoded for simplicity)
     MODEL_FILE_ID = "10dtSRjjsE-42sLFDnfOj8WKLu99YuZ-A"
+    CSV_FILE_ID = "1JsSCqQomfIelhSfO9eHlbyDGbuRqfzMX"
     
-    try:
-        # Download model file if not exists
-        if not os.path.exists("ticket_recommender_model.joblib"):
-            print(f"📥 Downloading 300MB model from Google Drive...")
-            print(f"File ID: 10dtSRjjsE-42sLFDnfOj8WKLu99YuZ-A")
-            model_url = f"https://drive.google.com/uc?id=10dtSRjjsE-42sLFDnfOj8WKLu99YuZ-A"
-            
-            # Try downloading with gdown
-            try:
-                gdown.download(model_url, "ticket_recommender_model.joblib", quiet=False)
-            except Exception as e:
-                print(f"❌ gdown download failed: {e}")
-                # Try alternative download method
-                import requests
-                print("Trying alternative download method...")
-                response = requests.get(model_url, stream=True)
-                with open("ticket_recommender_model.joblib", "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                print("Alternative download complete")
-            
+    success = True
+    
+    # Download model file
+    if not os.path.exists("ticket_recommender_model.joblib"):
+        print("📥 Downloading model file...")
+        model_url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
+        try:
+            gdown.download(model_url, "ticket_recommender_model.joblib", quiet=False)
             if os.path.exists("ticket_recommender_model.joblib"):
                 file_size = os.path.getsize("ticket_recommender_model.joblib") / (1024*1024)
                 print(f"✅ Model downloaded! Size: {file_size:.2f} MB")
-                return True
             else:
-                print("❌ Model download failed - file not found after download")
-                # List all files in current directory
-                print(f"Files in directory: {os.listdir('.')}")
-                return False
+                print("❌ Model download failed")
+                success = False
+        except Exception as e:
+            print(f"❌ Model download error: {e}")
+            success = False
+    else:
+        file_size = os.path.getsize("ticket_recommender_model.joblib") / (1024*1024)
+        print(f"✅ Model already exists (Size: {file_size:.2f} MB)")
+    
+    # Download CSV file
+    if not os.path.exists("merged_data.csv"):
+        print("📥 Downloading CSV file...")
+        csv_url = f"https://drive.google.com/uc?id={CSV_FILE_ID}"
+        try:
+            gdown.download(csv_url, "merged_data.csv", quiet=False)
+            if os.path.exists("merged_data.csv"):
+                file_size = os.path.getsize("merged_data.csv") / (1024*1024)
+                print(f"✅ CSV downloaded! Size: {file_size:.2f} MB")
+            else:
+                print("❌ CSV download failed")
+                success = False
+        except Exception as e:
+            print(f"❌ CSV download error: {e}")
+            success = False
+    else:
+        file_size = os.path.getsize("merged_data.csv") / (1024*1024)
+        print(f"✅ CSV already exists (Size: {file_size:.2f} MB)")
+    
+    return success
+
+def check_and_prepare_model():
+    """Check if model exists, if not prepare to train"""
+    print("="*50)
+    print("STEP 3: Checking model status")
+    print("="*50)
+    
+    if os.path.exists("ticket_recommender_model.joblib"):
+        file_size = os.path.getsize("ticket_recommender_model.joblib") / (1024*1024)
+        print(f"✅ Model file found! Size: {file_size:.2f} MB")
+        
+        # Try to load it to verify it's not corrupted
+        try:
+            test_load = joblib.load("ticket_recommender_model.joblib")
+            print("✅ Model file is valid and can be loaded")
+            return "load"
+        except Exception as e:
+            print(f"⚠️ Existing model file is corrupted: {e}")
+            print("Will train new model instead")
+            os.remove("ticket_recommender_model.joblib")
+            return "train"
+    else:
+        print("ℹ️ No existing model file found")
+        if os.path.exists("merged_data.csv"):
+            print("✅ CSV file found - will train new model")
+            return "train"
         else:
-            file_size = os.path.getsize("ticket_recommender_model.joblib") / (1024*1024)
-            print(f"✅ Model already exists locally (Size: {file_size:.2f} MB)")
+            print("❌ No CSV file found either!")
+            return "failed"
+
+def train_model():
+    """Train the model using CSV"""
+    print("="*50)
+    print("STEP 4: Training new model")
+    print("="*50)
+    
+    try:
+        from train_on_render import train_model_on_render
+        if train_model_on_render():
+            print("✅ Model training successful!")
             return True
-            
+        else:
+            print("❌ Model training failed")
+            return False
     except Exception as e:
-        print(f"❌ Download error: {str(e)}")
+        print(f"❌ Error during training: {e}")
         traceback.print_exc()
         return False
 
@@ -78,35 +129,26 @@ def load_recommender():
     global recommender
     try:
         print("="*50)
-        print("STEP 3: Loading recommendation system...")
+        print("STEP 5: Loading recommendation system")
         print("="*50)
         
-        # Check if model file exists
+        from model import TicketRecommendationSystem
+        
         if not os.path.exists("ticket_recommender_model.joblib"):
             print("❌ Model file not found!")
-            print(f"Current directory: {os.getcwd()}")
-            print(f"Files: {os.listdir('.')}")
             return False
         
         file_size = os.path.getsize("ticket_recommender_model.joblib") / (1024*1024)
-        print(f"📁 Model file found! Size: {file_size:.2f} MB")
+        print(f"📁 Loading model file ({file_size:.2f} MB)...")
         
-        # Try to load the model with detailed error catching
-        print("🔄 Initializing TicketRecommendationSystem...")
         recommender = TicketRecommendationSystem()
+        recommender.load_model("ticket_recommender_model.joblib")
         
-        print("🔄 Attempting to load model...")
-        try:
-            recommender.load_model("ticket_recommender_model.joblib")
-        except Exception as e:
-            print(f"❌ Error in recommender.load_model: {e}")
-            traceback.print_exc()
-            return False
-        
-        # Verify model loaded correctly
         if recommender.ticket_ids is not None:
             print(f"✅ Model loaded successfully!")
             print(f"✅ Number of tickets in model: {len(recommender.ticket_ids)}")
+            if len(recommender.ticket_ids) > 0:
+                print(f"✅ Sample ticket ID: {recommender.ticket_ids[0]}")
             return True
         else:
             print("❌ Model loaded but ticket_ids is None")
@@ -124,8 +166,7 @@ def home():
         return render_template('index.html')
     except Exception as e:
         print(f"Error serving index.html: {e}")
-        traceback.print_exc()
-        return "Error loading page. Please check that index.html is in the templates folder.", 500
+        return "Error loading page. Check that index.html is in templates folder.", 500
 
 @app.route('/api/find_similar_tickets', methods=['POST'])
 def find_similar_tickets():
@@ -133,7 +174,6 @@ def find_similar_tickets():
     global recommender
     
     if recommender is None:
-        print("❌ API called but recommender is None")
         return jsonify({"error": "Recommendation system not loaded. Please check server logs."}), 500
     
     try:
@@ -152,14 +192,12 @@ def find_similar_tickets():
         
         print(f"🔍 Processing query: {description[:50]}...")
         
-        # Find similar tickets
         results = recommender.find_similar_tickets(
             query_description=description,
             top_n=10,
             similarity_threshold=0.5
         )
         
-        # Check if results is a dict with error
         if isinstance(results, dict) and 'error' in results:
             print(f"⚠️ Error from model: {results['error']}")
             return jsonify([])
@@ -172,62 +210,59 @@ def find_similar_tickets():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "healthy" if recommender is not None else "degraded",
-        "model_loaded": recommender is not None,
-        "model_file_exists": os.path.exists("ticket_recommender_model.joblib"),
-        "model_file_size": f"{os.path.getsize('ticket_recommender_model.joblib') / (1024*1024):.2f} MB" if os.path.exists("ticket_recommender_model.joblib") else "N/A",
-        "templates_folder_exists": os.path.exists("templates"),
-        "index_html_exists": os.path.exists("templates/index.html") if os.path.exists("templates") else False
-    })
-
 @app.route('/debug', methods=['GET'])
-def debug_info():
-    """Debug endpoint to check file structure"""
-    files = os.listdir(".")
-    templates_files = os.listdir("templates") if os.path.exists("templates") else []
+def debug():
+    """Debug endpoint to check file status"""
+    files = {}
+    for f in ['ticket_recommender_model.joblib', 'merged_data.csv']:
+        if os.path.exists(f):
+            files[f] = f"{os.path.getsize(f) / (1024*1024):.2f} MB"
+        else:
+            files[f] = "Not found"
     
     return jsonify({
+        "files": files,
+        "recommender_loaded": recommender is not None,
         "current_directory": os.getcwd(),
-        "files_in_root": files,
-        "templates_folder_exists": os.path.exists("templates"),
-        "files_in_templates": templates_files if os.path.exists("templates") else [],
-        "model_file_exists": os.path.exists("ticket_recommender_model.joblib"),
-        "model_file_size": f"{os.path.getsize('ticket_recommender_model.joblib') / (1024*1024):.2f} MB" if os.path.exists("ticket_recommender_model.joblib") else "N/A",
+        "all_files": os.listdir('.')
     })
 
 if __name__ == '__main__':
-    print("="*50)
+    print("="*60)
     print("🚀 Starting Ticket Recommendation System")
-    print("="*50)
-    print(f"Python version: {sys.version}")
-    print(f"Current directory: {os.getcwd()}")
-    print(f"Files in directory: {os.listdir('.')}")
+    print("="*60)
     
-    # Check if templates folder exists
-    if not os.path.exists("templates"):
-        print("⚠️  Warning: 'templates' folder not found!")
-    elif not os.path.exists("templates/index.html"):
-        print("⚠️  Warning: 'templates/index.html' not found!")
-    else:
-        print("✅ Templates folder and index.html found")
-    
-    # Download model from Google Drive
+    # Step 1: Download files from Google Drive
     if download_from_drive():
-        print("✅ File download completed")
-    else:
-        print("⚠️  File download had issues - continuing anyway...")
+        print("✅ All downloads completed")
+        
+        # Step 2: Check model status
+        status = check_and_prepare_model()
+        
+        if status == "load":
+            # Try to load existing model
+            if load_recommender():
+                print("✅ Ready to serve requests!")
+            else:
+                print("⚠️ Could not load model, will train new one")
+                if train_model():
+                    load_recommender()
+        
+        elif status == "train":
+            # Train new model
+            if train_model():
+                load_recommender()
+            else:
+                print("❌ Training failed")
+        
+        else:
+            print("❌ Cannot proceed - no model or CSV")
     
-    # Load the recommender
-    if load_recommender():
-        port = int(os.environ.get('PORT', 5000))
-        print(f"✅ Server starting on port {port}")
-        print(f"🌐 Access your app at: http://localhost:{port} or your Render URL")
-        app.run(host='0.0.0.0', port=port, debug=False)
     else:
-        print("❌ Failed to load recommender. Exiting.")
-        exit(1)
-
+        print("❌ Failed to download files from Google Drive")
+    
+    # Always start the server (even if model failed)
+    port = int(os.environ.get('PORT', 5000))
+    print(f"🌍 Server starting on port {port}")
+    print(f"🔍 Debug endpoint: /debug")
+    app.run(host='0.0.0.0', port=port, debug=False)
